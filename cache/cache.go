@@ -75,6 +75,10 @@ func (c *Cache) Fetch(ctx context.Context, url string, ttlOverride ...time.Durat
 		return val.val, nil
 	}
 
+	if c.maxSize > 0 && len(c.storage) >= int(c.maxSize) {
+		c.evictExpired()
+	}
+
 	c.stats.misses++
 	respBytes, err := makeHttpReq(url)
 	if err != nil {
