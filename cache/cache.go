@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -28,7 +29,6 @@ type cacheStats struct {
 }
 
 type Cache struct {
-	// TODO: implement cache storage, TTLs, locking, and deduplication
 	mx         *sync.RWMutex
 	storage    map[string]*cachedValue
 	ttl        time.Duration
@@ -104,6 +104,7 @@ func (c *Cache) Close() {
 }
 
 func (c *Cache) startCleanup() {
+	fmt.Printf("c.cleanup: %+v\n", c.cleanup)
 	ticker := time.NewTicker(c.cleanup)
 
 	running := true
@@ -123,10 +124,8 @@ func (c *Cache) evictExpired() {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	now := time.Now()
-
 	for key, val := range c.storage {
-		if now.After(val.expiresAt) {
+		if val.isExpired() {
 			delete(c.storage, key)
 		}
 	}

@@ -33,9 +33,6 @@ if err != nil {
 }
 
 // handle `data` as []byte
-
-hits, misses, entries := client.Stats()
-fmt.Printf("Hits: %d\nMisses: %d\nEntries: %d", hits, misses, entries)
 ```
 
 The `defaultTTL` parameter for `NewCache` functions needs to be defined as a fallback value for TTL.
@@ -52,6 +49,19 @@ defer client.Close()
 ```
 
 By passing `WithCleanupInterval` value to the `NewCache` function, the cleanup interval changed to 30 seconds
+
+The complete list of use cases can be found [here](https://github.com/CristianCurteanu/http-deduper/tree/main/examples)
+
+### Cache hit rate statistics
+
+There is also possibility to check statistics metrics, like hits, misses and entries:
+
+```go
+hits, misses, entries := client.Stats()
+fmt.Printf("Hits: %d\nMisses: %d\nEntries: %d", hits, misses, entries)
+```
+
+The `hits` and `misses` metrics are using industry standard method for measuring cache hit rate, which is defined by this calculation formula `hits / (hits + misses)`, contrary to other approach of measuring miss rate;
 
 ## Known issues
 
