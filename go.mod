@@ -1,3 +1,3 @@
-module github.com/CristiCurteanu/http-deduper
+module github.com/CristianCurteanu/http-deduper
 
 go 1.23.10
