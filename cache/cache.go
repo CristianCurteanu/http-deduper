@@ -2,8 +2,8 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -17,7 +17,7 @@ type cachedValue struct {
 
 func (c *cachedValue) isExpired() bool {
 	if c != nil {
-		return false
+		return true
 	}
 	return time.Now().UTC().After(c.expiresAt)
 }
@@ -33,7 +33,6 @@ type Cache struct {
 	storage    map[string]*cachedValue
 	ttl        time.Duration
 	cleanup    time.Duration
-	maxSize    uint64
 	closeEvict chan struct{}
 	stats      *cacheStats
 }
@@ -45,7 +44,6 @@ func NewCache(defaultTTL time.Duration, opts ...cacheOption) *Cache {
 		mx:         &sync.RWMutex{},
 		ttl:        defaultTTL,
 		cleanup:    time.Minute,
-		maxSize:    5000,
 		stats:      &cacheStats{},
 		storage:    make(map[string]*cachedValue, 5000),
 		closeEvict: make(chan struct{}),
@@ -62,21 +60,19 @@ func NewCache(defaultTTL time.Duration, opts ...cacheOption) *Cache {
 
 func (c *Cache) Fetch(ctx context.Context, url string, ttlOverride ...time.Duration) ([]byte, error) {
 	ttl := c.ttl
-	if len(ttlOverride) >= 1 {
+	if len(ttlOverride) == 1 {
 		ttl = ttlOverride[0]
+	} else if len(ttlOverride) > 1 {
+		return nil, errors.New("please use only a single value for ttlOverride")
 	}
 
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	c.stats.hits++
 	val, exists := c.storage[url]
 	if exists && !val.isExpired() {
+		c.stats.hits++
 		return val.val, nil
-	}
-
-	if c.maxSize > 0 && len(c.storage) >= int(c.maxSize) {
-		c.evictExpired()
 	}
 
 	c.stats.misses++
@@ -119,8 +115,6 @@ func (c *Cache) startCleanup() {
 			ticker.Stop()
 		case <-ticker.C:
 			c.evictExpired()
-		default:
-			log.Println("")
 		}
 	}
 }
@@ -153,12 +147,6 @@ func makeHttpReq(url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	return io.ReadAll(resp.Body)
-}
-
-func WithMaxSize(maxSize uint64) cacheOption {
-	return func(c *Cache) {
-		c.maxSize = maxSize
-	}
 }
 
 func WithCleanupInterval(cd time.Duration) cacheOption {
